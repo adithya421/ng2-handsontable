@@ -178,12 +178,14 @@ export class HotTableComponent implements OnInit, OnDestroy, OnChanges {
     const contains = (testProperties:  TriggerableInputProperty[]) =>
       _.intersection(properties, testProperties).length > 0;
     if (this.inst) {
-      if (contains(optionsInputProperties)) {
-        this.inst.updateSettings(this.getCurrentOptions(), false);
-      }
-      if (contains(['data'])) {
-        this.inst.loadData(this.data);
-      }
+      this.ngZone.runOutsideAngular(() => {
+        if (contains(optionsInputProperties)) {
+          this.inst.updateSettings(this.getCurrentOptions(), false);
+        }
+        if (contains(['data'])) {
+          this.inst.loadData(this.data);
+        }
+      });
     }
   }
 
@@ -206,9 +208,11 @@ export class HotTableComponent implements OnInit, OnDestroy, OnChanges {
       this.data = [];
       this.pagedDataSubscription = this.pagedData.subscribe((newPagedData: any) => {
         Array.prototype.push.apply(this.data, newPagedData);
-        this.inst.loadData(this.data);
+        this.ngZone.runOutsideAngular(() => {
+          this.inst.loadData(this.data);
+          this.inst.updateSettings(options, false);
+        });
         this.parseAutoComplete(options);
-        this.inst.updateSettings(options, false);
       });
     }
   }
@@ -221,7 +225,9 @@ export class HotTableComponent implements OnInit, OnDestroy, OnChanges {
       this.pagedDataSubscription.unsubscribe();
     }
     if (this.inst) {
-      this.inst.destroy();
+      this.ngZone.runOutsideAngular(() => {
+        this.inst.destroy();
+      });
     }
   }
 
@@ -240,7 +246,6 @@ export class HotTableComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private parseAutoComplete(options: any) {
-    const inst = this.inst;
     const columns = this.columns || options.columns;
     const dataSet = options.data;
 
@@ -249,7 +254,9 @@ export class HotTableComponent implements OnInit, OnDestroy, OnChanges {
         if (typeof column.source === 'string') {
           const relatedField: string = column.source;
           column.source = (_query: any, process: any) => {
-            const row: number = inst.getSelected()[0][0];
+            const row: number = this.ngZone.runOutsideAngular(() =>
+              this.inst.getSelected()[0][0]
+            );
             const data: any = dataSet[row];
 
             if (!data) {
